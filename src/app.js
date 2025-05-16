@@ -1,37 +1,85 @@
 const express = require("express");
 
+const conectDB = require("./config/database");
+
+const User = require("./models/user");
+
 const app = express();
 
-// GET /users => middlewares chain => request handler
-app.use("/",(req,res,next)=>{
-    // res.send("handling / route")
-console.log("handling the route user!!");
-next();
+app.use(express.json());
+
+app.post("/signup", async (req, res) => {
+  console.log(req.body);
+  // Creating a new instance of the user model
+  const user = new User(req.body);
+
+  try {
+    await user.save();
+    res.send("User added successfully..!");
+  } catch (err) {
+    res.status(400).send("Error saving the user:" + err.message);
+  }
 });
 
-app.get("/user",(req,res,next)=>{
-    console.log("Handling /user route");
-    next();
-},
-(req,res,next)=>{
-    res.send("1st route handler");
-},
-(req,res,next)=>{
-    res.send("2nd route handler");
+// GET user by email
+app.get("/user", async (req, res) => {
+  const userEmail = req.body.emailId;
+  try {
+    const user = await User.findOne({ emailId: userEmail });
+    // const user = await User.find({ emailId: userEmail });
+    // if (user.length == 0) {
+    //   res.status(404).send("user not found");
+    // } else {
+    //   res.send(user);
+    // }
+    if (!user) {
+      res.status(404).send("user not found");
+    } else {
+      res.send(user);
+    }
+  } catch (err) {
+    res.status(400).send("Something went wrong ");
+  }
 });
-// app.get("/user/:userId/:name/:password",(req,res)=>{
-//     console.log(req.params);
-//     res.send({firstName:"Akshay",lastName:"Saini"})
-// });
 
-// app.post("/user",(req,res)=>{
-//     res.send("Data succesfully saved to the database!");
-// })
+// Feed Api - GET / feed - get all the users from the database
+app.get("/feed", async (req, res) => {
+  try {
+    const users = await User.find({});
+    res.send(users);
+  } catch (err) {
+    res.status(400).send("Something went wrong ");
+  }
+});
 
-// app.use("/test",(req,res)=>{
-//     res.send("from the server!");
-// });
+app.delete("/user", async (req, res) => {
+  const userId = req.body.userId;
+  try {
+    const users = await User.findByIdAndDelete(userId);
+    res.send("Users deleted sucessfully");
+  } catch (err) {
+    res.status(400).send("Something went wrong ");
+  }
+});
 
-app.listen(3000,()=>{
-    console.log("Server is successfully listening on port 3000...");
-});  
+app.patch("/user", async (req, res) => {
+  const userId = req.body.userId;
+  const data = req.body;
+  try {
+    await User.findByIdAndUpdate({ _id: userId }, data);
+    res.send("Data updated successfully");
+  } catch {
+    res.status(400).send("Something went wrong ");
+  }
+});
+
+conectDB()
+  .then(() => {
+    console.log("Database connection established...");
+    app.listen(3000, () => {
+      console.log("Server is successfully listening on port 3000...");
+    });
+  })
+  .catch((err) => {
+    console.error("Database cannot be connected!!");
+  });
