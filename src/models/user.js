@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
-var validator = require("validator");
+const validator = require("validator");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema(
   {
@@ -14,13 +16,13 @@ const userSchema = new mongoose.Schema(
     },
     emailId: {
       type: String,
-      trim: true,
       lowercase: true,
       required: true,
       unique: true,
+      trim: true,
       validate(value) {
         if (!validator.isEmail(value)) {
-          throw new Error("Invalid email address:" + value);
+          throw new Error("Invalid email address: " + value);
         }
       },
     },
@@ -29,7 +31,7 @@ const userSchema = new mongoose.Schema(
       required: true,
       validate(value) {
         if (!validator.isStrongPassword(value)) {
-          throw new Error("week password , type a strong password" + value);
+          throw new Error("Enter a Strong Password: " + value);
         }
       },
     },
@@ -39,27 +41,37 @@ const userSchema = new mongoose.Schema(
     },
     gender: {
       type: String,
-      validate(value) {
-        if (!["male", "female", "others"].includes(value)) {
-          throw new Error("Gender data is not valid");
-        }
+      enum: {
+        values: ["male", "female", "other"],
+        message: `{VALUE} is not a valid gender type`,
       },
+      // validate(value) {
+      //   if (!["male", "female", "others"].includes(value)) {
+      //     throw new Error("Gender data is not valid");
+      //   }
+      // },
+    },
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
+    membershipType: {
+      type: String,
     },
     photoUrl: {
       type: String,
-      default:
-        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ97ib7imtFs7THwKeCf0iVT244N5dy5GuG-8kmp8ZmykwjbzEP1O4aCFg&s",
+      default: "https://geographyandyou.com/images/user-profile.png",
       validate(value) {
         if (!validator.isURL(value)) {
-          throw new Error("Invalid photo Url:" + value);
+          throw new Error("Invalid Photo URL: " + value);
         }
       },
     },
     about: {
       type: String,
-      default: "This is a default about of a user",
+      default: "This is a default about of the user!",
     },
-    skill: {
+    skills: {
       type: [String],
     },
   },
@@ -68,6 +80,26 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-const userModel = mongoose.model("User", userSchema);
+userSchema.methods.getJWT = async function () {
+  const user = this;
 
-module.exports = userModel;
+  const token = await jwt.sign({ _id: user._id }, "DEV@Tinder$790", {
+    expiresIn: "7d",
+  });
+
+  return token;
+};
+
+userSchema.methods.validatePassword = async function (passwordInputByUser) {
+  const user = this;
+  const passwordHash = user.password;
+
+  const isPasswordValid = await bcrypt.compare(
+    passwordInputByUser,
+    passwordHash
+  );
+
+  return isPasswordValid;
+};
+
+module.exports = mongoose.model("User", userSchema);
